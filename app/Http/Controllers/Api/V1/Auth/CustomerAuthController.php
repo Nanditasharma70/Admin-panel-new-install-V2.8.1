@@ -228,9 +228,11 @@ class CustomerAuthController extends Controller
 
         if($request->ref_code) {
             $ref_status = BusinessSetting::where('key','ref_earning_status')->first()->value;
-            if ($ref_status != '1') {
-                return response()->json(['errors'=>Helpers::error_formater('ref_code', translate('messages.referer_disable'))], 403);
+            // ref_status changed from '!=' to '=='
+            if ($ref_status == '1') {
+                return response()->json(['errors'=>Helpers::error_formater('ref_code', translate('messages.Your_referral_code_is_used_by'))], 200);
             }
+            // Your_referral_code_is_used_by
 
             $referar_user = User::where('ref_code', '=', $request->ref_code)->first();
             if (!$referar_user || !$referar_user->status) {
