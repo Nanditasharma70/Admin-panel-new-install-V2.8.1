@@ -4890,4 +4890,12 @@
   'license_code_is_required' => 'License code is required',
   'doamain_is_required' => 'Doamain is required',
   'react_data_updated' => 'React data updated',
+  'referer_disable' => 'Referer disable',
+  'Your_referral_code_is_used_by' => 'Your referral code is used by',
+  'Be prepare to receive when they complete there first purchase' => 'Be prepare to receive when they complete there first purchase',
+  'referer_code_not_found' => 'Referer code not found',
+  'Be prepared to receive when they complete their first purchase' => 'Be prepared to receive when they complete their first purchase',
+  'zone_updated_successfully' => 'Zone updated successfully',
+  'End time must be after the start time' => 'End time must be after the start time',
+  'zone_cash_on_delivery_status_updated' => 'Zone cash on delivery status updated',
 );
