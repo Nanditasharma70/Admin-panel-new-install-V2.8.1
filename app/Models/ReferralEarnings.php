@@ -11,7 +11,7 @@ class ReferralEarnings extends Model
 
     protected $fillable = [
         'user_id',
-        'referred_by',
+        'ref_by',
         'referred_amount',
         'level',
         'email',
