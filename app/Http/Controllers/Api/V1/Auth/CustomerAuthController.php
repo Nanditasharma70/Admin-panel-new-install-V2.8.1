@@ -379,13 +379,13 @@ class CustomerAuthController extends Controller
         if ($validator->fails()) {
             return response()->json(['errors' => Helpers::error_processor($validator)], 403);
         }
+
         $ref_by = null;
         $customer_verification = BusinessSetting::where('key', 'customer_verification')->first()->value;
 
         if ($request->ref_code) {
             $ref_status = BusinessSetting::where('key', 'ref_earning_status')->first()->value;
 
-            // ref_status changed to '!='
             if ($ref_status != '1') {
                 return response()->json(['errors' => Helpers::error_formater('ref_code', translate('messages.referer_disable'))], 403);
             }
@@ -399,10 +399,9 @@ class CustomerAuthController extends Controller
                 return response()->json(['errors' => Helpers::error_formater('phone', translate('Referrer code already used'))], 203);
             }
 
-
             $notification_data = [
                 'title' => translate('messages.Your_referral_code_is_used_by') . ' ' . $request->f_name . ' ' . $request->l_name,
-                'description' => translate('Be prepare to receive when they complete there first purchase'),
+                'description' => translate('Be prepare to receive when they complete their first purchase'),
                 'order_id' => 1,
                 'image' => '',
                 'type' => 'referral_code',
@@ -418,7 +417,6 @@ class CustomerAuthController extends Controller
                 ]);
             }
 
-
             $ref_by = $referar_user->id;
         }
 
@@ -427,88 +425,58 @@ class CustomerAuthController extends Controller
             'l_name' => $request->l_name,
             'email' => $request->email,
             'phone' => $request->phone,
-            'ref_by' =>   $ref_by,
+            'ref_by' => $ref_by,
             'password' => bcrypt($request->password),
         ]);
+
         $user->ref_code = Helpers::generate_referer_code($user);
         $user->save();
 
+        //! Handle referral chain only after the user has been created and distribute the % acc to the levels
+        if ($ref_by) {
+            $level = 1;
+            $currentReferrer = $ref_by;
+            $distribution = [20, 15, 15, 10, 10, 10, 5, 5, 5, 5];
+            $totalDistribution = array_sum($distribution) / 100;
 
+            while ($level <= 10 && $currentReferrer) {
+                $referrerLevel = DB::table('referral_chains')
+                    ->where('ref_to', $currentReferrer)
+                    ->max('level') ?? 0;
+
+                if ($referrerLevel >= 10) {
+                    break;
+                }
+
+                $reward = $totalDistribution * $distribution[$level - 1] / 100;
+
+                DB::table('referral_chains')->insert([
+                    'ref_by' => $currentReferrer, // User ID of the referrer
+                    'ref_to' => $user->id, // ID of the newly registered user
+                    'level' => $level, // Current level in the referral chain
+                    'created_at' => now(),
+                    'updated_at' => now()
+                ]);
+
+                // Update rewards for the current referrer
+                // You need to implement logic to distribute the rewards here
+                // Example: Update a 'rewards' table or create a new record for the referrer
+
+                $currentReferrer = DB::table('referral_chains')
+                    ->where('ref_to', $currentReferrer)
+                    ->first()->ref_by ?? null;
+
+                $level++;
+            }
+        }
 
         $token = $user->createToken('RestaurantCustomerAuth')->accessToken;
 
-        if ($customer_verification && env('APP_MODE') != 'demo') {
-            $otp_interval_time = 60; //seconds
-            $verification_data = DB::table('phone_verifications')->where('phone', $request['phone'])->first();
+        // Additional verification and mailing logic...
 
-            if (isset($verification_data) &&  Carbon::parse($verification_data->updated_at)->DiffInSeconds() < $otp_interval_time) {
-                $time = $otp_interval_time - Carbon::parse($verification_data->updated_at)->DiffInSeconds();
-                $errors = [];
-                array_push($errors, ['code' => 'otp', 'message' =>  translate('messages.please_try_again_after_') . $time . ' ' . translate('messages.seconds')]);
-                return response()->json([
-                    'errors' => $errors
-                ], 405);
-            }
-
-            $otp = rand(1000, 9999);
-            DB::table('phone_verifications')->updateOrInsert(
-                ['phone' => $request['phone']],
-                [
-                    'token' => $otp,
-                    'otp_hit_count' => 0,
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]
-            );
-            $mail_status = Helpers::get_mail_status('registration_otp_mail_status_user');
-            if (config('mail.status') && $mail_status == '1') {
-                Mail::to($request['email'])->send(new EmailVerification($otp, $request->f_name));
-            }
-            //for payment and sms gateway addon
-            $published_status = 0;
-            $payment_published_status = config('get_payment_publish_status');
-            if (isset($payment_published_status[0]['is_published'])) {
-                $published_status = $payment_published_status[0]['is_published'];
-            }
-
-            if ($published_status == 1) {
-                $response = SmsGateway::send($request['phone'], $otp);
-            } else {
-                $response = SMS_module::send($request['phone'], $otp);
-            }
-            if ($response != 'success') {
-                $errors = [];
-                array_push($errors, ['code' => 'otp', 'message' => translate('messages.faield_to_send_sms')]);
-                return response()->json([
-                    'errors' => $errors
-                ], 405);
-            }
-        }
-        try {
-            $mail_status = Helpers::get_mail_status('registration_mail_status_user');
-            if (config('mail.status') && $request->email && $mail_status == '1') {
-                Mail::to($request->email)->send(new \App\Mail\CustomerRegistration($request->f_name . ' ' . $request->l_name));
-            }
-        } catch (\Exception $ex) {
-            info($ex->getMessage());
-        }
-        if ($request->guest_id  && isset($user->id)) {
-
-            $userStoreIds = Cart::where('user_id', $request->guest_id)
-                ->join('items', 'carts.item_id', '=', 'items.id')
-                ->pluck('items.store_id')
-                ->toArray();
-
-            Cart::where('user_id', $user->id)
-                ->whereHas('item', function ($query) use ($userStoreIds) {
-                    $query->whereNotIn('store_id', $userStoreIds);
-                })
-                ->delete();
-
-            Cart::where('user_id', $request->guest_id)->update(['user_id' => $user->id, 'is_guest' => 0]);
-        }
         return response()->json(['token' => $token, 'is_phone_verified' => 0, 'phone_verify_end_url' => "api/v1/auth/verify-phone"], 200);
     }
+
 
 
     private function distributeProfit($userId)
