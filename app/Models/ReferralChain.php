@@ -10,6 +10,7 @@ class ReferralChain extends Model
         'ref_by',
         'ref_to',
         'level',
+        'amount_received',
     ];
 
     /**
