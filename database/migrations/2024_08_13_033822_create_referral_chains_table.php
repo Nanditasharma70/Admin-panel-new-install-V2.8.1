@@ -18,6 +18,7 @@ class CreateReferralChainsTable extends Migration
             $table->unsignedBigInteger('ref_by'); // User ID of the referrer
             $table->unsignedBigInteger('ref_to'); // User ID of the referred person
             $table->unsignedInteger('level'); // Level in the referral chain
+            $table->decimal('amount_received', 10, 2)->nullable()->default(0); // Amount received by users
             $table->timestamps(); // Adds created_at and updated_at columns
 
             // Foreign keys

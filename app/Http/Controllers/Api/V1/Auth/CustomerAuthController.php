@@ -22,6 +22,10 @@ use Illuminate\Support\Facades\Mail;
 use Modules\Gateways\Traits\SmsGateway;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rules\Password;
+use App\Http\Controllers\Api\V1\Reuse; 
+// use App\Http\Controllers\Api\V1\ReferralDistributionController;
+
+
 
 class CustomerAuthController extends Controller
 {
@@ -436,8 +440,6 @@ class CustomerAuthController extends Controller
         if ($ref_by) {
             $level = 1;
             $currentReferrer = $ref_by;
-            $distribution = [20, 15, 15, 10, 10, 10, 5, 5, 5, 5];
-            $totalDistribution = array_sum($distribution) / 100;
 
             while ($level <= 10 && $currentReferrer) {
                 $referrerLevel = DB::table('referral_chains')
@@ -447,8 +449,6 @@ class CustomerAuthController extends Controller
                 if ($referrerLevel >= 10) {
                     break;
                 }
-
-                $reward = $totalDistribution * $distribution[$level - 1] / 100;
 
                 DB::table('referral_chains')->insert([
                     'ref_by' => $currentReferrer, // User ID of the referrer
@@ -470,53 +470,13 @@ class CustomerAuthController extends Controller
             }
         }
 
+
         $token = $user->createToken('RestaurantCustomerAuth')->accessToken;
 
         // Additional verification and mailing logic...
 
         return response()->json(['token' => $token, 'is_phone_verified' => 0, 'phone_verify_end_url' => "api/v1/auth/verify-phone"], 200);
     }
-
-
-
-    private function distributeProfit($userId)
-    {
-        $profit_distribution = [
-            '1' => 20,
-            '2' => 15,
-            '3' => 10,
-            '4' => 10,
-            '5' => 10,
-            '6' => 5,
-            '7' => 5,
-            '8' => 5,
-            '9' => 5,
-            '10' => 5,
-        ];
-
-        $total_profit = 100; // Example total profit value. Replace with the actual profit amount to be distributed.
-
-        foreach ($profit_distribution as $level => $percentage) {
-            $amount = ($total_profit * $percentage) / 100;
-            $this->distributeToReferrer($userId, $amount, $level);
-        }
-    }
-
-    private function distributeToReferrer($userId, $amount, $level)
-    {
-        $referrer = User::find($userId);
-        if ($referrer) {
-            // Logic to add the amount to the referrer's wallet or other system as per your requirements
-            // Example: $referrer->wallet += $amount;
-            // $referrer->save();
-
-            // Move to the next level referrer
-            if ($level < 10 && $referrer->ref_by) {
-                $this->distributeToReferrer($referrer->ref_by, $amount, $level + 1);
-            }
-        }
-    }
-
 
     public function login(Request $request)
     {
