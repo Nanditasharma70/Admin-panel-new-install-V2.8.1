@@ -15,6 +15,7 @@ use App\Http\Controllers\PaypalPaymentController;
 use App\Http\Controllers\StripePaymentController;
 use App\Http\Controllers\SslCommerzPaymentController;
 use App\Http\Controllers\FirebaseController;
+use App\Http\Controllers\ReferralController;
 
 /* 
 |-------------------------------------------------------------------------- 
@@ -26,6 +27,17 @@ use App\Http\Controllers\FirebaseController;
 | contains the "web" middleware group. Now create something great! 
 | 
 */
+
+// Referral Routes
+// Route::get('/referrals', [ReferralController::class, 'index'])->name('index');
+// Route::post('transfer', [ReferralController::class, 'transfer'])->name('transfer');
+
+// Referrals
+Route::group(['prefix' => 'referrals'], function () {
+    Route::get('referral_data', [ReferralController::class, 'referral_data']); // Display referral data
+});
+
+
 
 
 Route::post('/subscribeToTopic', [FirebaseController::class, 'subscribeToTopic']);
@@ -186,8 +198,7 @@ Route::get('/test', function () {
     dd('Hello tester');
 });
 
-Route::get('module-test', function () {
-});
+Route::get('module-test', function () {});
 
 //Restaurant Registration 
 Route::group(['prefix' => 'store', 'as' => 'restaurant.'], function () {
